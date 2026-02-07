@@ -1,7 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Users, MapPin, Building2, Clock, Heart } from 'lucide-react'
+import { Calendar, Users, MapPin, Building2, Clock, Heart, Check, Loader2 } from 'lucide-react'
+import { submitLead } from '@/lib/supabase/leads'
+import {
+  validateQuickPlannerForm,
+  validateQuickPlannerPopup,
+  type FieldErrors,
+} from '@/lib/validation'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export default function QuickPlanner() {
   const [formData, setFormData] = useState({
@@ -9,16 +22,74 @@ export default function QuickPlanner() {
     numberOfPeople: '1',
     interestArea: 'all',
   })
+  const [popupData, setPopupData] = useState({ name: '', phone: '' })
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [popupSubmitting, setPopupSubmitting] = useState(false)
+  const [formErrors, setFormErrors] = useState<FieldErrors>({})
+  const [popupErrors, setPopupErrors] = useState<FieldErrors>({})
+  const [popupError, setPopupError] = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: undefined }))
+  }
+
+  const handlePopupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPopupData((prev) => ({ ...prev, [name]: value }))
+    setPopupError(null)
+    if (popupErrors[name]) setPopupErrors((prev) => { const next = { ...prev }; delete next[name]; return next })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement form submission logic
+    setFormErrors({})
+    const errors = validateQuickPlannerForm(formData)
+    if (errors && Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+    setIsDialogOpen(true)
   }
+
+  const handlePopupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPopupError(null)
+    setPopupErrors({})
+    const errors = validateQuickPlannerPopup(popupData)
+    if (errors && Object.keys(errors).length > 0) {
+      setPopupErrors(errors)
+      return
+    }
+    setPopupSubmitting(true)
+    const result = await submitLead('quick_planner', {
+      name: popupData.name.trim(),
+      phone: popupData.phone.trim(),
+      visitDate: formData.visitDate,
+      numberOfPeople: formData.numberOfPeople,
+      interestArea: formData.interestArea,
+    })
+    if (!result.success) {
+      setPopupError(result.error ?? 'Something went wrong. Please try again.')
+      setPopupSubmitting(false)
+      return
+    }
+    setSubmitted(true)
+    setPopupSubmitting(false)
+    setPopupData({ name: '', phone: '' })
+    setFormData({ visitDate: '', numberOfPeople: '1', interestArea: 'all' })
+    setIsDialogOpen(false)
+    setFormErrors({})
+    setPopupErrors({})
+    setTimeout(() => setSubmitted(false), 3000)
+  }
+
+  const fieldBorder = (errors: FieldErrors, name: string) =>
+    errors[name]
+      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+      : 'border-[#e8e6e1] focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20'
 
   return (
     <section className="py-10 md:py-14 lg:py-16 bg-gradient-to-b from-white to-[#F8F6F2]">
@@ -37,6 +108,11 @@ export default function QuickPlanner() {
           onSubmit={handleSubmit}
           className="max-w-4xl mx-auto bg-white rounded-xl md:rounded-2xl shadow-xl p-5 md:p-6 lg:p-8 border-2 border-[#e8e6e1]"
         >
+          {(formErrors.visitDate || formErrors.numberOfPeople || formErrors.interestArea) && (
+            <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-lg mb-4">
+              Please fix the errors below before continuing.
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 lg:gap-6 mb-6 md:mb-8">
             {/* Date Input */}
             <div className="flex flex-col">
@@ -49,9 +125,9 @@ export default function QuickPlanner() {
                 name="visitDate"
                 value={formData.visitDate}
                 onChange={handleChange}
-                className="w-full h-11 md:h-12 px-3 md:px-4 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all text-sm md:text-base overflow-hidden"
-                required
+                className={`w-full h-11 md:h-12 px-3 md:px-4 border rounded-lg focus:outline-none focus:ring-2 transition-all text-sm md:text-base overflow-hidden ${fieldBorder(formErrors, 'visitDate')}`}
               />
+              {formErrors.visitDate && <p className="mt-1.5 text-sm text-red-600">{formErrors.visitDate}</p>}
             </div>
 
             {/* Guests Input */}
@@ -63,13 +139,14 @@ export default function QuickPlanner() {
               <input
                 type="number"
                 name="numberOfPeople"
-                min="1"
-                max="50"
+                min={1}
+                max={50}
                 value={formData.numberOfPeople}
                 onChange={handleChange}
                 placeholder="No. of people"
-                className="w-full h-11 md:h-12 px-3 md:px-4 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all text-sm md:text-base placeholder:text-gray-400 overflow-hidden"
+                className={`w-full h-11 md:h-12 px-3 md:px-4 border rounded-lg focus:outline-none focus:ring-2 transition-all text-sm md:text-base placeholder:text-gray-400 overflow-hidden ${fieldBorder(formErrors, 'numberOfPeople')}`}
               />
+              {formErrors.numberOfPeople && <p className="mt-1.5 text-sm text-red-600">{formErrors.numberOfPeople}</p>}
             </div>
 
             {/* Interest Area */}
@@ -82,20 +159,92 @@ export default function QuickPlanner() {
                 name="interestArea"
                 value={formData.interestArea}
                 onChange={handleChange}
-                className="w-full h-11 md:h-12 px-3 md:px-4 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all bg-white text-sm md:text-base truncate"
+                className={`w-full h-11 md:h-12 px-3 md:px-4 border rounded-lg focus:outline-none focus:ring-2 transition-all bg-white text-sm md:text-base truncate ${fieldBorder(formErrors, 'interestArea')}`}
               >
                 <option value="all">All Attractions</option>
                 <option value="temples">Temples</option>
                 <option value="cultural">Cultural Sites</option>
                 <option value="heritage">Heritage Sites</option>
               </select>
+              {formErrors.interestArea && <p className="mt-1.5 text-sm text-red-600">{formErrors.interestArea}</p>}
             </div>
           </div>
 
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
+            {submitted && (
+              <p className="text-sm font-medium text-green-700">Thanks! We&apos;ll get in touch with recommendations.</p>
+            )}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogContent className="sm:max-w-[420px] bg-white border-2 border-[#e8e6e1]">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold text-[#0B1A3A]">
+                    Almost there
+                  </DialogTitle>
+                  <DialogDescription className="text-[#7f8c8d]">
+                    Share your name and phone so we can send personalized recommendations.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handlePopupSubmit} className="space-y-4 mt-4">
+                  {popupError && (
+                    <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-lg">
+                      {popupError}
+                    </p>
+                  )}
+                  <div>
+                    <label className="block text-sm font-semibold text-[#0B1A3A] mb-2">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={popupData.name}
+                      onChange={handlePopupChange}
+                      placeholder="Enter your full name"
+                      maxLength={80}
+                      autoComplete="name"
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${fieldBorder(popupErrors, 'name')}`}
+                    />
+                    {popupErrors.name && <p className="mt-1.5 text-sm text-red-600">{popupErrors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-[#0B1A3A] mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={popupData.phone}
+                      onChange={handlePopupChange}
+                      placeholder="+91-XXXXXXXXXX"
+                      autoComplete="tel"
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${fieldBorder(popupErrors, 'phone')}`}
+                    />
+                    {popupErrors.phone && <p className="mt-1.5 text-sm text-red-600">{popupErrors.phone}</p>}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={popupSubmitting}
+                    className="w-full px-6 py-3 bg-[#D97B2B] text-white font-semibold rounded-lg hover:bg-[#c86a1a] transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {popupSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" aria-hidden />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-5 h-5" />
+                        Submit
+                      </>
+                    )}
+                  </button>
+                </form>
+              </DialogContent>
+            </Dialog>
             <button
               type="submit"
-              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 bg-[#D97B2B] text-white font-semibold rounded-xl hover:bg-[#c86a1a] transition-all hover:shadow-xl hover:shadow-[#D97B2B]/30 text-sm md:text-base"
+              disabled={submitted}
+              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 bg-[#D97B2B] text-white font-semibold rounded-xl hover:bg-[#c86a1a] transition-all hover:shadow-xl hover:shadow-[#D97B2B]/30 text-sm md:text-base disabled:opacity-50"
             >
               Get Personalized Recommendations
             </button>

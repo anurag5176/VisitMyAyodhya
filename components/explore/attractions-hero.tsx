@@ -29,7 +29,7 @@ export default function AttractionsHero() {
                 src="/hero.png"
                 alt="Explore Ayodhya"
                 fill
-                className="object-cover"
+                className="object-cover scale-125"
                 priority
               />
             </div>

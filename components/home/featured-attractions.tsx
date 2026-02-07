@@ -36,7 +36,7 @@ export default function FeaturedAttractions() {
                 <div className="relative overflow-hidden aspect-video">
                   {attraction.slug === 'ram-mandir' ? (
                     <Image
-                      src="/rammandir3.png"
+                      src="/RamMandir/3.jpeg"
                       alt={attraction.name}
                       fill
                       className="object-cover rounded-t-2xl group-hover:scale-110 transition-transform duration-500"

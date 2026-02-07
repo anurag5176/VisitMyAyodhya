@@ -68,7 +68,7 @@ export default function Hero() {
             <div className="relative">
               <div className="relative aspect-square rounded-2xl shadow-2xl overflow-hidden">
                 <Image
-                  src="/rammandir.png"
+                  src="/RamMandir/7.jpeg"
                   alt="Ayodhya Spiritual Journey - Ram Mandir"
                   fill
                   className="object-cover"

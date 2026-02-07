@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Phone, Mail, MapPin, Check } from 'lucide-react'
+import { Phone, Mail, MapPin, Check, Loader2 } from 'lucide-react'
+import { submitLead } from '@/lib/supabase/leads'
+import { validateContactForm, type FieldErrors } from '@/lib/validation'
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -12,22 +14,44 @@ export default function ContactForm() {
   })
 
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    setError(null)
+    if (fieldErrors[name]) setFieldErrors((prev) => { const next = { ...prev }; delete next[name]; return next })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement contact form submission logic
+    setError(null)
+    setFieldErrors({})
+    const errors = validateContactForm(formData)
+    if (errors && Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setIsSubmitting(true)
+    const result = await submitLead('contact', {
+      name: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      subject: formData.subject,
+      message: formData.message.trim(),
+    })
+    if (!result.success) {
+      setError(result.error ?? 'Something went wrong. Please try again.')
+      setIsSubmitting(false)
+      return
+    }
     setSubmitted(true)
-    setTimeout(() => {
-      setFormData({ name: '', email: '', subject: '', message: '' })
-      setSubmitted(false)
-    }, 3000)
+    setIsSubmitting(false)
+    setFormData({ name: '', email: '', subject: '', message: '' })
+    setTimeout(() => setSubmitted(false), 3000)
   }
 
   return (
@@ -90,9 +114,13 @@ export default function ContactForm() {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Your name"
-                  required
-                  className="w-full px-4 py-3 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all"
+                  maxLength={80}
+                  autoComplete="name"
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                    fieldErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-[#e8e6e1] focus:border-[#D97B2B] focus:ring-[#D97B2B]/20'
+                  }`}
                 />
+                {fieldErrors.name && <p className="mt-1.5 text-sm text-red-600">{fieldErrors.name}</p>}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#0B1A3A] mb-3">
@@ -104,9 +132,13 @@ export default function ContactForm() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="your.email@example.com"
-                  required
-                  className="w-full px-4 py-3 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all"
+                  maxLength={254}
+                  autoComplete="email"
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
+                    fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-[#e8e6e1] focus:border-[#D97B2B] focus:ring-[#D97B2B]/20'
+                  }`}
                 />
+                {fieldErrors.email && <p className="mt-1.5 text-sm text-red-600">{fieldErrors.email}</p>}
               </div>
             </div>
 
@@ -118,8 +150,9 @@ export default function ContactForm() {
                 name="subject"
                 value={formData.subject}
                 onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all bg-white"
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all bg-white ${
+                  fieldErrors.subject ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-[#e8e6e1] focus:border-[#D97B2B] focus:ring-[#D97B2B]/20'
+                }`}
               >
                 <option value="">Select a subject</option>
                 <option value="booking">Booking Inquiry</option>
@@ -127,8 +160,14 @@ export default function ContactForm() {
                 <option value="support">Support</option>
                 <option value="other">Other</option>
               </select>
+              {fieldErrors.subject && <p className="mt-1.5 text-sm text-red-600">{fieldErrors.subject}</p>}
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-lg">
+                {error}
+              </p>
+            )}
             <div>
               <label className="block text-sm font-semibold text-[#0B1A3A] mb-3">
                 Message *
@@ -137,19 +176,30 @@ export default function ContactForm() {
                 name="message"
                 value={formData.message}
                 onChange={handleChange}
-                placeholder="Your message here..."
+                placeholder="Your message here... (at least 10 characters)"
                 rows={5}
-                required
-                className="w-full px-4 py-3 border border-[#e8e6e1] rounded-lg focus:outline-none focus:border-[#D97B2B] focus:ring-2 focus:ring-[#D97B2B]/20 transition-all resize-none"
+                maxLength={2000}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all resize-none ${
+                  fieldErrors.message ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-[#e8e6e1] focus:border-[#D97B2B] focus:ring-[#D97B2B]/20'
+                }`}
               />
+              <div className="mt-1.5 flex justify-between">
+                {fieldErrors.message && <p className="text-sm text-red-600">{fieldErrors.message}</p>}
+                <p className="text-xs text-[#7f8c8d] ml-auto">{formData.message.length}/2000</p>
+              </div>
             </div>
 
             <button
               type="submit"
               className="w-full px-8 py-4 bg-[#D97B2B] text-white font-semibold rounded-lg hover:bg-[#c86a1a] transition-all hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
-              disabled={submitted}
+              disabled={submitted || isSubmitting}
             >
-              {submitted ? (
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" aria-hidden />
+                  Sending...
+                </>
+              ) : submitted ? (
                 <>
                   <Check className="w-5 h-5" />
                   Message Sent Successfully!

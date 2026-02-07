@@ -17,6 +17,7 @@ export default function Header() {
     { label: 'Explore', href: '/explore' },
     { label: 'Plan & Book', href: '/plan-and-book' },
     { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
   ]
 
   return (

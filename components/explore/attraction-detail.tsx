@@ -25,7 +25,7 @@ export default function AttractionDetail({ attraction }: AttractionDetailProps) 
                 <Image
                   src={
                     attraction.slug === 'ram-mandir' 
-                      ? '/rammandir.png' 
+                      ? '/RamMandir/7.jpeg' 
                       : attraction.slug === 'hanuman-garhi'
                       ? '/hanuman-garhi2.jpg'
                       : attraction.slug === 'kanak-bhawan'
@@ -40,7 +40,7 @@ export default function AttractionDetail({ attraction }: AttractionDetailProps) 
                   }
                   alt={attraction.name}
                   fill
-                  className="object-cover"
+                  className="object-cover scale-125"
                   priority
                 />
               </div>
@@ -103,7 +103,7 @@ export default function AttractionDetail({ attraction }: AttractionDetailProps) 
                     <>
                       <div className="relative aspect-square rounded-xl overflow-hidden">
                         <Image
-                          src="/rammandir2.png"
+                          src="/RamMandir/2.jpeg"
                           alt={`${attraction.name} - Image 1`}
                           fill
                           className="object-cover"
@@ -111,7 +111,7 @@ export default function AttractionDetail({ attraction }: AttractionDetailProps) 
                       </div>
                       <div className="relative aspect-square rounded-xl overflow-hidden">
                         <Image
-                          src="/rammandir3.png"
+                          src="/RamMandir/4.jpeg"
                           alt={`${attraction.name} - Image 2`}
                           fill
                           className="object-cover"
@@ -119,7 +119,7 @@ export default function AttractionDetail({ attraction }: AttractionDetailProps) 
                       </div>
                       <div className="relative aspect-square rounded-xl overflow-hidden">
                         <Image
-                          src="/rammandir.png"
+                          src="/RamMandir/5.jpeg"
                           alt={`${attraction.name} - Image 3`}
                           fill
                           className="object-cover"
